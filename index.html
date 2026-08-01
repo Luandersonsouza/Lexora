@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Portal de consulta juridica." />
+    <title>Lexora | Acesso</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  </head>
+  <body>
+    <main id="login-view" class="login-page">
+      <section class="login-image" aria-hidden="true">
+        <div class="image-overlay"></div>
+        <div class="image-copy">
+          <p class="eyebrow light">INTELIGENCIA JURIDICA</p>
+          <p class="image-quote">Informacao certa, no momento em que sua analise precisa.</p>
+        </div>
+      </section>
+
+      <section class="login-panel">
+        <a class="brand" href="#" aria-label="Lexora, inicio">
+          <span class="brand-mark">L</span>
+          <span>lexora</span>
+        </a>
+        <div class="login-content">
+          <p class="eyebrow">AREA RESTRITA</p>
+          <h1>Boas-vindas de volta.</h1>
+          <p class="intro">Acesse seu ambiente para acompanhar pesquisas e organizacao de consultas.</p>
+          <form id="login-form" novalidate>
+            <label for="email">E-mail</label>
+            <input id="email" name="email" type="email" placeholder="nome@escritorio.com.br" autocomplete="email" required />
+            <label for="password">Senha</label>
+            <div class="password-wrap">
+              <input id="password" name="password" type="password" placeholder="Sua senha" autocomplete="current-password" required />
+              <button class="icon-button password-toggle" type="button" aria-label="Mostrar senha" title="Mostrar senha" data-password-toggle>
+                <i data-lucide="eye"></i>
+              </button>
+            </div>
+            <div class="form-options">
+              <label class="check-label"><input type="checkbox" name="remember" /> <span>Manter acesso</span></label>
+              <a href="#">Esqueci minha senha</a>
+            </div>
+            <p id="login-error" class="form-error" role="alert"></p>
+            <button class="primary-button" type="submit">Entrar <i data-lucide="arrow-right"></i></button>
+          </form>
+          <p class="support">Precisa de ajuda? <a href="mailto:suporte@lexora.com.br">Fale com o suporte</a></p>
+        </div>
+        <p class="legal">Lexora Tecnologia Juridica &copy; 2026</p>
+      </section>
+    </main>
+
+    <main id="app-view" class="app-shell" hidden>
+      <aside class="sidebar">
+        <div>
+          <a class="brand" href="#"><span class="brand-mark">L</span><span>lexora</span></a>
+          <nav aria-label="Navegacao principal">
+            <a class="nav-item active" data-view-link="pesquisa" href="#pesquisa"><i data-lucide="search"></i> Nova pesquisa</a>
+            <a class="nav-item" data-view-link="historico" href="#historico"><i data-lucide="clock-3"></i> Historico</a>
+            <a class="nav-item" data-view-link="salvos" href="#salvos"><i data-lucide="bookmark"></i> Salvos</a>
+          </nav>
+        </div>
+        <div class="sidebar-bottom">
+          <a class="nav-item" data-view-link="configuracoes" href="#configuracoes"><i data-lucide="settings-2"></i> Configuracoes</a>
+          <button id="logout-button" class="nav-item logout" type="button"><i data-lucide="log-out"></i> Sair</button>
+          <div class="profile-card">
+            <div class="avatar">AM</div>
+            <div><strong data-profile-name>Alex Martins</strong><span data-profile-role>Administrador</span></div>
+            <button class="profile-more icon-button" type="button" aria-label="Opcoes do perfil" title="Opcoes do perfil"><i data-lucide="ellipsis"></i></button>
+          </div>
+        </div>
+      </aside>
+
+      <section class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">CONSULTAS</p>
+            <h1 id="page-title">Nova pesquisa</h1>
+          </div>
+          <button class="help-button" type="button"><i data-lucide="circle-help"></i> Central de ajuda</button>
+        </header>
+        <div class="workspace-content">
+          <section id="pesquisa" class="app-view-panel">
+            <div class="search-intro">
+            <span class="intro-icon"><i data-lucide="scan-search"></i></span>
+            <div><h2>O que voce deseja consultar?</h2><p>Informe os dados disponiveis. A busca sera enviada ao seu ambiente de coleta.</p></div>
+            </div>
+            <form id="search-form" class="search-form">
+            <div class="form-grid">
+              <div class="field wide"><label for="source">Fonte de consulta</label><div class="select-wrap"><select id="source" name="source"><option>Google</option><option disabled>Jusbrasil em breve</option></select><i data-lucide="chevron-down"></i></div></div>
+              <div class="field"><label for="full-name">Nome completo</label><input id="full-name" name="full-name" type="text" placeholder="Ex.: Maria da Silva" /></div>
+              <div class="field"><label for="document">CPF ou CNPJ</label><input id="document" name="document" type="text" placeholder="Somente numeros" inputmode="numeric" /></div>
+              <div class="field"><label for="state">UF (opcional)</label><div class="select-wrap"><select id="state" name="state"><option value="">Todos os estados</option><option>SP</option><option>RJ</option><option>MG</option><option>PR</option><option>RS</option></select><i data-lucide="chevron-down"></i></div></div>
+              <div class="field"><label for="keyword">Termo adicional (opcional)</label><input id="keyword" name="keyword" type="text" placeholder="Ex.: numero do processo" /></div>
+            </div>
+            <div class="form-note"><i data-lucide="shield-check"></i><span>Utilize dados pessoais somente quando houver base legal para a consulta.</span></div>
+            <div class="search-actions"><button class="secondary-button" type="reset">Limpar campos</button><button class="primary-button" type="submit">Iniciar pesquisa <i data-lucide="arrow-right"></i></button></div>
+            </form>
+            <section id="search-feedback" class="empty-state" aria-live="polite">
+            <i data-lucide="inbox"></i><p>Nenhuma pesquisa em andamento.</p><span>As solicitacoes enviadas aparecerao aqui.</span>
+            </section>
+          </section>
+
+          <section id="historico" class="app-view-panel" hidden>
+            <div class="view-intro"><div><h2>Historico de pesquisas</h2><p>Consulte as ultimas solicitacoes feitas neste ambiente.</p></div><span id="history-count" class="count-label">0 pesquisas</span></div>
+            <div id="history-list" class="research-list"></div>
+          </section>
+
+          <section id="salvos" class="app-view-panel" hidden>
+            <div class="view-intro"><div><h2>Pesquisas salvas</h2><p>Mantenha por perto as consultas que precisam de acompanhamento.</p></div></div>
+            <div id="saved-list" class="research-list"></div>
+          </section>
+
+          <section id="configuracoes" class="app-view-panel" hidden>
+            <div class="view-intro"><div><h2>Configuracoes do perfil</h2><p>Atualize como seus dados aparecem neste ambiente local.</p></div></div>
+            <form id="profile-form" class="settings-form">
+              <div class="form-grid"><div class="field"><label for="profile-name">Nome</label><input id="profile-name" name="name" type="text" required /></div><div class="field"><label for="profile-email">E-mail</label><input id="profile-email" name="email" type="email" required /></div><div class="field"><label for="profile-role">Funcao</label><div class="select-wrap"><select id="profile-role" name="role"><option>Administrador</option><option>Analista</option><option>Consultor</option></select><i data-lucide="chevron-down"></i></div></div></div>
+              <p id="profile-feedback" class="form-error" role="status"></p>
+              <div class="search-actions"><button class="primary-button" type="submit">Salvar alteracoes <i data-lucide="save"></i></button></div>
+            </form>
+          </section>
+        </div>
+      </section>
+    </main>
+    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
