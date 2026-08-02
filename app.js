@@ -1,13 +1,13 @@
 // Configuração do Supabase
-const SUPABASE_URL = 'https://iocigkighyffefmomthq.supabase.co';
+const SUPABASE_URL = 'https://iocigkighyffefmomthq.supabaseClient.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlvY2lna2lnaHlmZmVmbW9tdGhxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU1Mzc1NTEsImV4cCI6MjEwMTExMzU1MX0.POnC8Yfb4I6WSUgDXX30yK1rVTQUYkuOqczJSnW--i0';
 
 // Inicializar cliente Supabase (mudei o nome da variável!)
 let supabaseClient;
 
 try {
-  // Criar o cliente usando window.supabase.createClient
-  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  // Criar o cliente usando window.supabaseClient..createClient
+  supabaseClient.Client = window.supabaseClient.createClient(supabaseClient._URL, SUPABASE_ANON_KEY);
   console.log('✅ Supabase inicializado com sucesso');
 } catch (error) {
   console.error('❌ Erro ao inicializar Supabase:', error);
@@ -43,7 +43,7 @@ function safeResultUrl(value) {
 // ============ NOVAS FUNÇÕES SUPABASE ============
 
 async function getSupabaseSession() {
-  const { data: { session }, error } = await supabase.auth.getSession();
+  const { data: { session }, error } = await supabaseClient.auth.getSession();
   if (error) {
     console.error('Erro ao obter sessão:', error);
     return null;
@@ -54,7 +54,7 @@ async function getSupabaseSession() {
 async function authenticateWithSupabase(email, password) {
   console.log('🔐 Tentando login com:', email);
   
-  const { data, error } = await supabase.auth.signInWithPassword({
+  const { data, error } = await supabaseClient.auth.signInWithPassword({
     email: email,
     password: password
   });
@@ -69,7 +69,7 @@ async function authenticateWithSupabase(email, password) {
 }
 
 async function logoutFromSupabase() {
-  const { error } = await supabase.auth.signOut();
+  const { error } = await supabaseClient.auth.signOut();
   if (error) {
     console.error('Erro ao fazer logout:', error);
     throw error;
@@ -77,7 +77,7 @@ async function logoutFromSupabase() {
 }
 
 async function loadProfileFromSupabase() {
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
   
   if (userError || !user) {
     console.error('Erro ao obter usuário:', userError);
@@ -127,7 +127,7 @@ async function loadProfileFromSupabase() {
 }
 
 async function updateProfileInSupabase(profileData) {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await supabaseClient.auth.getUser();
   if (!user) throw new Error('Usuário não autenticado');
   
   const { data, error } = await supabase
@@ -142,7 +142,7 @@ async function updateProfileInSupabase(profileData) {
 }
 
 async function loadResearchesFromSupabase() {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await supabaseClient.auth.getUser();
   if (!user) return [];
   
   const { data, error } = await supabase
@@ -172,7 +172,7 @@ async function loadResearchesFromSupabase() {
 }
 
 async function createResearchInSupabase(researchData) {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await supabaseClient.auth.getUser();
   if (!user) throw new Error('Usuário não autenticado');
   
   const { data, error } = await supabase
