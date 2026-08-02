@@ -77,7 +77,7 @@ async function loadProfileFromSupabase() {
   console.log('👤 Usuário autenticado:', user.id);
   
   // Buscar dados do perfil na tabela profiles
-  const { data: profile, error } = await supabase
+  const { data: profile, error } = await supabaseClient
     .from('profiles')
     .select('*')
     .eq('user_id', user.id)
@@ -94,11 +94,12 @@ async function loadProfileFromSupabase() {
     const newProfile = {
       user_id: user.id,
       name: user.email ? user.email.split('@')[0] : 'Usuário',
+      full_name: user.email ? user.email.split('@')[0] : 'Usuário',
       email: user.email,
       role: 'user'
     };
     
-    const { data: createdProfile, error: createError } = await supabase
+    const { data: createdProfile, error: createError } = await supabaseClient
       .from('profiles')
       .insert([newProfile])
       .select()
@@ -113,22 +114,35 @@ async function loadProfileFromSupabase() {
     return createdProfile;
   }
   
-  return profile;
+  return {
+    ...profile,
+    name: profile.name || profile.full_name || 'Usuário',
+  };
 }
 
 async function updateProfileInSupabase(profileData) {
   const { data: { user } } = await supabaseClient.auth.getUser();
   if (!user) throw new Error('Usuário não autenticado');
+
+  const updateData = {
+    name: profileData.name,
+    full_name: profileData.name,
+    email: profileData.email,
+    role: profileData.role
+  }
   
   const { data, error } = await supabase
     .from('profiles')
-    .update(profileData)
+    .update(updateData)
     .eq('user_id', user.id)
     .select()
     .single();
   
   if (error) throw error;
-  return data;
+  return {
+    ...data,
+    name: data.name || data.full_name
+  };
 }
 
 async function loadResearchesFromSupabase() {
