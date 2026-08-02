@@ -2,12 +2,12 @@
 const SUPABASE_URL = 'https://iocigkighyffefmomthq.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlvY2lna2lnaHlmZmVmbW9tdGhxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU1Mzc1NTEsImV4cCI6MjEwMTExMzU1MX0.POnC8Yfb4I6WSUgDXX30yK1rVTQUYkuOqczJSnW--i0';
 
-// Inicializar Supabase - CORRIGIDO
-let supabase;
+// Inicializar cliente Supabase (mudei o nome da variável!)
+let supabaseClient;
 
 try {
-  // Usando window.supabase.createClient
-  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  // Criar o cliente usando window.supabase.createClient
+  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   console.log('✅ Supabase inicializado com sucesso');
 } catch (error) {
   console.error('❌ Erro ao inicializar Supabase:', error);
