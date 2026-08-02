@@ -1,7 +1,15 @@
 // Configuração do Supabase
 const SUPABASE_URL = 'https://iocigkighyffefmomthq.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlvY2lna2lnaHlmZmVmbW9tdGhxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU1Mzc1NTEsImV4cCI6MjEwMTExMzU1MX0.POnC8Yfb4I6WSUgDXX30yK1rVTQUYkuOqczJSnW--i0';
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// Inicializar Supabase
+let supabaseClient;
+try {
+  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  console.log('✅ Supabase inicializado com sucesso');
+} catch (error) {
+  console.error('❌ Erro ao inicializar Supabase:', error);
+}
 
 const loginView = document.querySelector('#login-view');
 const appView = document.querySelector('#app-view');
@@ -30,40 +38,113 @@ function safeResultUrl(value) {
   }
 }
 
-// ============ NOVAS FUNÇÕES SUPABASE ============
-
-async function getSupabaseSession() {
-  const { data: { session }, error } = await supabaseClient.auth.getSession();
-  if (error) {
-    console.error('Erro ao obter sessão:', error);
+// ============ CRIAÇÃO AUTOMÁTICA DO USUÁRIO ADMIN ============
+async function createAdminIfNotExists() {
+  try {
+    const { data, error } = await supabaseClient.auth.signInWithPassword({
+      email: 'admin@lexora.com.br',
+      password: '123456'
+    });
+    
+    if (!error && data.user) {
+      console.log('✅ Admin já existe, login realizado');
+      return data;
+    }
+    
+    if (error && error.message.includes('Invalid login credentials')) {
+      console.log('📝 Criando usuário admin...');
+      
+      const { data: signUpData, error: signUpError } = await supabaseClient.auth.signUp({
+        email: 'admin@lexora.com.br',
+        password: '123456',
+        options: {
+          data: {
+            name: 'HUEJHUZE',
+            role: 'Administrador'
+          }
+        }
+      });
+      
+      if (signUpError) {
+        console.error('❌ Erro ao criar admin:', signUpError);
+        return null;
+      }
+      
+      console.log('✅ Admin criado com sucesso!');
+      
+      const { data: loginData } = await supabaseClient.auth.signInWithPassword({
+        email: 'admin@lexora.com.br',
+        password: '123456'
+      });
+      
+      return loginData;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('❌ Erro na criação do admin:', error);
     return null;
   }
+}
+
+async function createAdminProfile(userId, userEmail) {
+  try {
+    const { data: existingProfile } = await supabaseClient
+      .from('profiles')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+    
+    if (existingProfile) {
+      console.log('✅ Perfil admin já existe');
+      return existingProfile;
+    }
+    
+    const { data: profile, error } = await supabaseClient
+      .from('profiles')
+      .insert([{
+        user_id: userId,
+        name: 'HUEJHUZE',
+        full_name: 'HUEJHUZE',
+        email: userEmail,
+        role: 'Administrador'
+      }])
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('❌ Erro ao criar perfil admin:', error);
+      return null;
+    }
+    
+    console.log('✅ Perfil admin criado com sucesso');
+    return profile;
+  } catch (error) {
+    console.error('❌ Erro ao criar perfil:', error);
+    return null;
+  }
+}
+
+// ============ FUNÇÕES SUPABASE ============
+
+async function getSupabaseSession() {
+  const { data: { session } } = await supabaseClient.auth.getSession();
   return session;
 }
 
 async function authenticateWithSupabase(email, password) {
-  console.log('🔐 Tentando login com:', email);
-  
   const { data, error } = await supabaseClient.auth.signInWithPassword({
-    email: email,
-    password: password
+    email,
+    password
   });
   
-  if (error) {
-    console.error('❌ Erro no login:', error);
-    throw error;
-  }
-  
-  console.log('✅ Login bem-sucedido:', data);
+  if (error) throw error;
   return data;
 }
 
 async function logoutFromSupabase() {
   const { error } = await supabaseClient.auth.signOut();
-  if (error) {
-    console.error('Erro ao fazer logout:', error);
-    throw error;
-  }
+  if (error) throw error;
 }
 
 async function loadProfileFromSupabase() {
@@ -74,9 +155,6 @@ async function loadProfileFromSupabase() {
     return null;
   }
   
-  console.log('👤 Usuário autenticado:', user.id);
-  
-  // Buscar dados do perfil na tabela profiles
   const { data: profile, error } = await supabaseClient
     .from('profiles')
     .select('*')
@@ -88,9 +166,7 @@ async function loadProfileFromSupabase() {
     return null;
   }
   
-  // Se não existe perfil, criar um básico
   if (!profile) {
-    console.log('📝 Criando novo perfil...');
     const newProfile = {
       user_id: user.id,
       name: user.email ? user.email.split('@')[0] : 'Usuário',
@@ -110,28 +186,27 @@ async function loadProfileFromSupabase() {
       return null;
     }
     
-    console.log('✅ Perfil criado:', createdProfile);
     return createdProfile;
   }
   
   return {
     ...profile,
-    name: profile.name || profile.full_name || 'Usuário',
+    name: profile.name || profile.full_name || 'Usuário'
   };
 }
 
 async function updateProfileInSupabase(profileData) {
   const { data: { user } } = await supabaseClient.auth.getUser();
   if (!user) throw new Error('Usuário não autenticado');
-
+  
   const updateData = {
     name: profileData.name,
     full_name: profileData.name,
     email: profileData.email,
     role: profileData.role
-  }
+  };
   
-  const { data, error } = await supabase
+  const { data, error } = await supabaseClient
     .from('profiles')
     .update(updateData)
     .eq('user_id', user.id)
@@ -149,7 +224,7 @@ async function loadResearchesFromSupabase() {
   const { data: { user } } = await supabaseClient.auth.getUser();
   if (!user) return [];
   
-  const { data, error } = await supabase
+  const { data, error } = await supabaseClient
     .from('research_requests')
     .select('*')
     .eq('user_id', user.id)
@@ -160,7 +235,6 @@ async function loadResearchesFromSupabase() {
     return [];
   }
   
-  // Transformar para o formato usado na UI
   return (data || []).map(research => ({
     id: research.id,
     fullName: research.full_name || '',
@@ -179,7 +253,7 @@ async function createResearchInSupabase(researchData) {
   const { data: { user } } = await supabaseClient.auth.getUser();
   if (!user) throw new Error('Usuário não autenticado');
   
-  const { data, error } = await supabase
+  const { data, error } = await supabaseClient
     .from('research_requests')
     .insert([{
       user_id: user.id,
@@ -209,7 +283,7 @@ async function createResearchInSupabase(researchData) {
 }
 
 async function toggleSaveResearchInSupabase(researchId, saved) {
-  const { error } = await supabase
+  const { error } = await supabaseClient
     .from('research_requests')
     .update({ is_saved: saved })
     .eq('id', researchId);
@@ -235,7 +309,6 @@ function setView(view) {
 }
 
 async function showApp() {
-  console.log('📱 Mostrando aplicação...');
   loginView.hidden = true;
   appView.hidden = false;
   setView(getActiveView());
@@ -245,7 +318,6 @@ async function showApp() {
 }
 
 function showLogin() {
-  console.log('🔒 Mostrando login...');
   appView.hidden = true;
   loginView.hidden = false;
   renderIcons();
@@ -358,24 +430,12 @@ loginForm.addEventListener('submit', async (event) => {
     return;
   }
   
-  // Mostrar loading
-  const submitButton = loginForm.querySelector('button[type="submit"]');
-  const originalText = submitButton.innerHTML;
-  submitButton.innerHTML = '<i data-lucide="loader-2"></i> Entrando...';
-  submitButton.disabled = true;
-  renderIcons();
-  
   try {
     await authenticateWithSupabase(email, password);
     loginError.textContent = '';
     await showApp();
   } catch (error) {
     loginError.textContent = error.message || 'Erro ao fazer login. Verifique suas credenciais.';
-    console.error('Erro detalhado:', error);
-  } finally {
-    submitButton.innerHTML = originalText;
-    submitButton.disabled = false;
-    renderIcons();
   }
 });
 
@@ -467,23 +527,34 @@ window.addEventListener('hashchange', () => setView(getActiveView()));
 (async () => {
   console.log('🚀 Inicializando aplicação...');
   
-  if (!supabase) {
+  if (!supabaseClient) {
     console.error('❌ Supabase não está disponível');
-    loginError.textContent = 'Erro de configuração. Recarregue a página.';
+    if (loginError) loginError.textContent = 'Erro de configuração. Recarregue a página.';
     return;
   }
   
   try {
     const session = await getSupabaseSession();
-    console.log('Sessão atual:', session ? 'Ativa' : 'Inativa');
     
     if (session) {
+      console.log('📱 Sessão encontrada, carregando aplicação...');
+      await showApp();
+      return;
+    }
+    
+    console.log('🔑 Tentando login automático do admin...');
+    const adminData = await createAdminIfNotExists();
+    
+    if (adminData?.user) {
+      console.log('✅ Admin autenticado, configurando perfil...');
+      await createAdminProfile(adminData.user.id, adminData.user.email);
       await showApp();
     } else {
+      console.log('👤 Nenhuma sessão ativa, mostrando login');
       showLogin();
     }
   } catch (error) {
-    console.error('Erro na inicialização:', error);
+    console.error('❌ Erro na inicialização:', error);
     showLogin();
   }
 })();
