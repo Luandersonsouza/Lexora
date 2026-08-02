@@ -2,46 +2,29 @@
 const SUPABASE_URL = 'https://iocigkighyffefmomthq.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlvY2lna2lnaHlmZmVmbW9tdGhxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU1Mzc1NTEsImV4cCI6MjEwMTExMzU1MX0.POnC8Yfb4I6WSUgDXX30yK1rVTQUYkuOqczJSnW--i0';
 
-// Inicializar Supabase de forma segura
-function initSupabase() {
-  // Verificar se o script do Supabase carregou
-  if (typeof window.supabase === 'undefined') {
-    console.error('❌ Script do Supabase não carregou');
-    return null;
+// Inicializar Supabase - Versão compatível com CDN
+let supabaseClient;
+
+try {
+  // Tentar diferentes formas de inicializar
+  if (window.supabase && typeof window.supabase.createClient === 'function') {
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    console.log('✅ Supabase inicializado via createClient');
+  } else if (window.supabase && window.supabase.default) {
+    supabaseClient = window.supabase.default.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    console.log('✅ Supabase inicializado via default.createClient');
+  } else {
+    // Fallback: criar manualmente
+    console.error('❌ Não foi possível inicializar Supabase');
+    console.log('Estrutura do window.supabase:', window.supabase);
   }
-  
-  try {
-    const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    console.log('✅ Supabase inicializado com sucesso');
-    return client;
-  } catch (error) {
-    console.error('❌ Erro ao criar cliente Supabase:', error);
-    return null;
-  }
+} catch (error) {
+  console.error('❌ Erro ao inicializar Supabase:', error);
 }
 
-// Aguardar o script carregar e inicializar
-let supabaseClient = null;
+// Resto do código permanece igual...
+// [Mantenha TODO o resto do seu app.js a partir da linha 46 em diante]
 
-// Tentar inicializar imediatamente
-supabaseClient = initSupabase();
-
-// Se não funcionou, aguardar o DOM carregar
-if (!supabaseClient) {
-  window.addEventListener('DOMContentLoaded', () => {
-    supabaseClient = initSupabase();
-    
-    // Se ainda não funcionou, tentar novamente após um delay
-    if (!supabaseClient) {
-      setTimeout(() => {
-        supabaseClient = initSupabase();
-        if (!supabaseClient) {
-          console.error('❌ Não foi possível inicializar o Supabase após várias tentativas');
-        }
-      }, 1000);
-    }
-  });
-}
 const loginView = document.querySelector('#login-view');
 const appView = document.querySelector('#app-view');
 const loginForm = document.querySelector('#login-form');
