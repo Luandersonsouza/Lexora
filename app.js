@@ -2,15 +2,16 @@
 const SUPABASE_URL = 'https://iocigkighyffefmomthq.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlvY2lna2lnaHlmZmVmbW9tdGhxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU1Mzc1NTEsImV4cCI6MjEwMTExMzU1MX0.POnC8Yfb4I6WSUgDXX30yK1rVTQUYkuOqczJSnW--i0';
 
-// Inicializar Supabase
-const supabase = (() => {
-  const { createClient } = window.supabase || {};
-  if (!createClient) {
-    console.error('Supabase não carregado. Adicione o script no HTML.');
-    return null;
-  }
-  return createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-})();
+// Inicializar Supabase - CORRIGIDO
+let supabase;
+
+try {
+  // Usando window.supabase.createClient
+  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  console.log('✅ Supabase inicializado com sucesso');
+} catch (error) {
+  console.error('❌ Erro ao inicializar Supabase:', error);
+}
 
 const loginView = document.querySelector('#login-view');
 const appView = document.querySelector('#app-view');
@@ -42,38 +43,48 @@ function safeResultUrl(value) {
 // ============ NOVAS FUNÇÕES SUPABASE ============
 
 async function getSupabaseSession() {
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { session }, error } = await supabase.auth.getSession();
+  if (error) {
+    console.error('Erro ao obter sessão:', error);
+    return null;
+  }
   return session;
 }
 
 async function authenticateWithSupabase(email, password) {
+  console.log('🔐 Tentando login com:', email);
+  
   const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password
+    email: email,
+    password: password
   });
   
-  if (error) throw error;
-  return data;
-}
-
-async function registerWithSupabase(email, password) {
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password
-  });
+  if (error) {
+    console.error('❌ Erro no login:', error);
+    throw error;
+  }
   
-  if (error) throw error;
+  console.log('✅ Login bem-sucedido:', data);
   return data;
 }
 
 async function logoutFromSupabase() {
   const { error } = await supabase.auth.signOut();
-  if (error) throw error;
+  if (error) {
+    console.error('Erro ao fazer logout:', error);
+    throw error;
+  }
 }
 
 async function loadProfileFromSupabase() {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  
+  if (userError || !user) {
+    console.error('Erro ao obter usuário:', userError);
+    return null;
+  }
+  
+  console.log('👤 Usuário autenticado:', user.id);
   
   // Buscar dados do perfil na tabela profiles
   const { data: profile, error } = await supabase
@@ -89,9 +100,10 @@ async function loadProfileFromSupabase() {
   
   // Se não existe perfil, criar um básico
   if (!profile) {
+    console.log('📝 Criando novo perfil...');
     const newProfile = {
       user_id: user.id,
-      name: user.email.split('@')[0], // Nome temporário
+      name: user.email ? user.email.split('@')[0] : 'Usuário',
       email: user.email,
       role: 'user'
     };
@@ -107,6 +119,7 @@ async function loadProfileFromSupabase() {
       return null;
     }
     
+    console.log('✅ Perfil criado:', createdProfile);
     return createdProfile;
   }
   
@@ -200,7 +213,7 @@ async function toggleSaveResearchInSupabase(researchId, saved) {
   if (error) throw error;
 }
 
-// ============ FUNÇÕES DE UI ATUALIZADAS ============
+// ============ FUNÇÕES DE UI ============
 
 function getActiveView() {
   const view = window.location.hash.slice(1);
@@ -218,6 +231,7 @@ function setView(view) {
 }
 
 async function showApp() {
+  console.log('📱 Mostrando aplicação...');
   loginView.hidden = true;
   appView.hidden = false;
   setView(getActiveView());
@@ -227,6 +241,7 @@ async function showApp() {
 }
 
 function showLogin() {
+  console.log('🔒 Mostrando login...');
   appView.hidden = true;
   loginView.hidden = false;
   renderIcons();
@@ -237,9 +252,14 @@ function renderProfile(profile) {
   currentProfile = profile;
   document.querySelectorAll('[data-profile-name]').forEach((node) => { node.textContent = profile.name; });
   document.querySelectorAll('[data-profile-role]').forEach((node) => { node.textContent = profile.role; });
-  document.querySelector('#profile-name').value = profile.name;
-  document.querySelector('#profile-email').value = profile.email;
-  document.querySelector('#profile-role').value = profile.role;
+  
+  const profileNameInput = document.querySelector('#profile-name');
+  const profileEmailInput = document.querySelector('#profile-email');
+  const profileRoleInput = document.querySelector('#profile-role');
+  
+  if (profileNameInput) profileNameInput.value = profile.name || '';
+  if (profileEmailInput) profileEmailInput.value = profile.email || '';
+  if (profileRoleInput) profileRoleInput.value = profile.role || 'user';
 }
 
 async function loadProfile() {
@@ -284,6 +304,7 @@ function researchRow(research) {
 }
 
 function renderResearchList(element, items, emptyMessage) {
+  if (!element) return;
   element.innerHTML = items.length ? items.map(researchRow).join('') : `<div class="list-empty"><i data-lucide="inbox"></i><p>${emptyMessage}</p></div>`;
 }
 
@@ -291,7 +312,10 @@ function renderAllResearches() {
   renderSearchFeedback();
   renderResearchList(document.querySelector('#history-list'), researches, 'Nenhuma pesquisa registrada ainda.');
   renderResearchList(document.querySelector('#saved-list'), researches.filter((research) => research.isSaved), 'Nenhuma pesquisa salva ainda.');
-  document.querySelector('#history-count').textContent = `${researches.length} pesquisa${researches.length === 1 ? '' : 's'}`;
+  const historyCount = document.querySelector('#history-count');
+  if (historyCount) {
+    historyCount.textContent = `${researches.length} pesquisa${researches.length === 1 ? '' : 's'}`;
+  }
   renderIcons();
 }
 
@@ -308,10 +332,11 @@ async function loadResearches() {
   }
 }
 
-// ============ EVENT LISTENERS ATUALIZADOS ============
+// ============ EVENT LISTENERS ============
 
-document.querySelector('[data-password-toggle]').addEventListener('click', (event) => {
+document.querySelector('[data-password-toggle]')?.addEventListener('click', (event) => {
   const password = document.querySelector('#password');
+  if (!password) return;
   const willShow = password.type === 'password';
   password.type = willShow ? 'text' : 'password';
   event.currentTarget.setAttribute('aria-label', willShow ? 'Ocultar senha' : 'Mostrar senha');
@@ -329,16 +354,28 @@ loginForm.addEventListener('submit', async (event) => {
     return;
   }
   
+  // Mostrar loading
+  const submitButton = loginForm.querySelector('button[type="submit"]');
+  const originalText = submitButton.innerHTML;
+  submitButton.innerHTML = '<i data-lucide="loader-2"></i> Entrando...';
+  submitButton.disabled = true;
+  renderIcons();
+  
   try {
     await authenticateWithSupabase(email, password);
     loginError.textContent = '';
     await showApp();
   } catch (error) {
     loginError.textContent = error.message || 'Erro ao fazer login. Verifique suas credenciais.';
+    console.error('Erro detalhado:', error);
+  } finally {
+    submitButton.innerHTML = originalText;
+    submitButton.disabled = false;
+    renderIcons();
   }
 });
 
-document.querySelector('#logout-button').addEventListener('click', async () => {
+document.querySelector('#logout-button')?.addEventListener('click', async () => {
   try {
     await logoutFromSupabase();
     loginForm.reset();
@@ -348,7 +385,7 @@ document.querySelector('#logout-button').addEventListener('click', async () => {
   }
 });
 
-document.querySelector('#search-form').addEventListener('submit', async (event) => {
+document.querySelector('#search-form')?.addEventListener('submit', async (event) => {
   event.preventDefault();
   const form = event.currentTarget;
   const data = new FormData(form);
@@ -379,7 +416,7 @@ document.querySelector('#search-form').addEventListener('submit', async (event) 
   }
 });
 
-document.querySelector('.workspace-content').addEventListener('click', async (event) => {
+document.querySelector('.workspace-content')?.addEventListener('click', async (event) => {
   const button = event.target.closest('[data-save-id]');
   if (!button) return;
   
@@ -398,7 +435,7 @@ document.querySelector('.workspace-content').addEventListener('click', async (ev
   }
 });
 
-document.querySelector('#profile-form').addEventListener('submit', async (event) => {
+document.querySelector('#profile-form')?.addEventListener('submit', async (event) => {
   event.preventDefault();
   const feedback = document.querySelector('#profile-feedback');
   const data = new FormData(event.currentTarget);
@@ -416,15 +453,33 @@ document.querySelector('#profile-form').addEventListener('submit', async (event)
   }
 });
 
-document.querySelectorAll('[data-view-link]').forEach((link) => link.addEventListener('click', () => setView(link.dataset.viewLink)));
+document.querySelectorAll('[data-view-link]').forEach((link) => {
+  link.addEventListener('click', () => setView(link.dataset.viewLink));
+});
+
 window.addEventListener('hashchange', () => setView(getActiveView()));
 
-// Inicialização
+// ============ INICIALIZAÇÃO ============
 (async () => {
-  const session = await getSupabaseSession();
-  if (session) {
-    await showApp();
-  } else {
+  console.log('🚀 Inicializando aplicação...');
+  
+  if (!supabase) {
+    console.error('❌ Supabase não está disponível');
+    loginError.textContent = 'Erro de configuração. Recarregue a página.';
+    return;
+  }
+  
+  try {
+    const session = await getSupabaseSession();
+    console.log('Sessão atual:', session ? 'Ativa' : 'Inativa');
+    
+    if (session) {
+      await showApp();
+    } else {
+      showLogin();
+    }
+  } catch (error) {
+    console.error('Erro na inicialização:', error);
     showLogin();
   }
 })();
