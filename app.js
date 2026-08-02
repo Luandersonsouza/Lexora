@@ -1,6 +1,6 @@
 // Configuração do Supabase
-const SUPABASE_URL = 'https://SEU_PROJETO.supabase.co';
-const SUPABASE_ANON_KEY = 'sua-chave-anon-aqui';
+const SUPABASE_URL = 'https://iocigkighyffefmomthq.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlvY2lna2lnaHlmZmVmbW9tdGhxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU1Mzc1NTEsImV4cCI6MjEwMTExMzU1MX0.POnC8Yfb4I6WSUgDXX30yK1rVTQUYkuOqczJSnW--i0';
 
 // Inicializar Supabase
 const supabase = (() => {
