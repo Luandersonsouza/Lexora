@@ -1,19 +1,24 @@
-"""Worker local para consultas publicas no Google.
+"""Worker de execucao unica para consultas publicas no Google, pensado para
+rodar via GitHub Actions (cron) contra o Postgres do Supabase.
 
 Nao tenta resolver CAPTCHA, contornar bloqueios nem automatizar navegadores. Se o
 Google bloquear a requisicao, o trabalho e marcado como falho para revisao.
+
+Variaveis de ambiente esperadas:
+    SUPABASE_DB_URL  -- connection string do Postgres do projeto Supabase
+                        (Dashboard > Settings > Database > Connection string > URI)
 """
 
 from __future__ import annotations
 
-import json
-import sqlite3
-import threading
+import os
 from html.parser import HTMLParser
-from typing import Callable
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlencode, urlparse
 from urllib.request import Request, urlopen
+
+import psycopg2
+import psycopg2.extras
 
 
 class GoogleResultParser(HTMLParser):
@@ -95,54 +100,89 @@ def search_google(name: str) -> list[dict[str, str]]:
     return parser.results
 
 
-class ResearchWorker:
-    def __init__(self, connect: Callable[[], sqlite3.Connection], timestamp: Callable[[], str]) -> None:
-        self.connect = connect
-        self.timestamp = timestamp
-        self.wake_up = threading.Event()
+def get_connection():
+    database_url = os.environ["SUPABASE_DB_URL"]
+    return psycopg2.connect(database_url)
 
-    def start(self) -> None:
-        threading.Thread(target=self.run, name="research-worker", daemon=True).start()
 
-    def notify(self) -> None:
-        self.wake_up.set()
+def claim_next_job(connection) -> dict | None:
+    """Pega o proximo job 'queued', marca como 'running' e retorna id + full_name.
 
-    def run(self) -> None:
-        while True:
-            self.process_next()
-            self.wake_up.wait(timeout=2)
-            self.wake_up.clear()
-
-    def process_next(self) -> None:
-        with self.connect() as connection:
-            connection.execute("BEGIN IMMEDIATE")
-            row = connection.execute(
-                "SELECT * FROM research_requests WHERE status = 'queued' ORDER BY id LIMIT 1"
-            ).fetchone()
-            if row is None:
-                return
-            now = self.timestamp()
-            connection.execute(
-                "UPDATE research_requests SET status = 'running', attempts = attempts + 1, updated_at = ? WHERE id = ?",
-                (now, row["id"]),
+    FOR UPDATE SKIP LOCKED evita corrida caso duas execucoes se sobreponham.
+    """
+    with connection.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+        cursor.execute(
+            """
+            UPDATE research_requests
+            SET status = 'running'
+            WHERE id = (
+                SELECT id FROM research_requests
+                WHERE status = 'queued'
+                ORDER BY created_at
+                FOR UPDATE SKIP LOCKED
+                LIMIT 1
             )
+            RETURNING id, full_name;
+            """
+        )
+        row = cursor.fetchone()
+        connection.commit()
+        return row
 
-        try:
-            if not row["full_name"]:
-                raise RuntimeError("A pesquisa no Google requer o nome completo.")
-            results = search_google(row["full_name"])
-            with self.connect() as connection:
-                connection.execute(
-                    """
-                    UPDATE research_requests
-                    SET status = 'completed', result_count = ?, results_json = ?, error_message = NULL, updated_at = ?
-                    WHERE id = ?
-                    """,
-                    (len(results), json.dumps(results, ensure_ascii=False), self.timestamp(), row["id"]),
-                )
-        except RuntimeError as error:
-            with self.connect() as connection:
-                connection.execute(
-                    "UPDATE research_requests SET status = 'failed', error_message = ?, updated_at = ? WHERE id = ?",
-                    (str(error), self.timestamp(), row["id"]),
-                )
+
+def complete_job(connection, job_id: int, results: list[dict[str, str]]) -> None:
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            UPDATE research_requests
+            SET status = 'completed',
+                result_count = %s,
+                results = %s,
+                error_message = NULL
+            WHERE id = %s;
+            """,
+            (len(results), psycopg2.extras.Json(results), job_id),
+        )
+        connection.commit()
+
+
+def fail_job(connection, job_id: int, message: str) -> None:
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            UPDATE research_requests
+            SET status = 'failed',
+                error_message = %s
+            WHERE id = %s;
+            """,
+            (message, job_id),
+        )
+        connection.commit()
+
+
+def process_all_pending() -> None:
+    connection = get_connection()
+    try:
+        processed = 0
+        while True:
+            job = claim_next_job(connection)
+            if job is None:
+                break
+            processed += 1
+            try:
+                if not job["full_name"]:
+                    raise RuntimeError("A pesquisa no Google requer o nome completo.")
+                results = search_google(job["full_name"])
+                complete_job(connection, job["id"], results)
+                print(f"[ok] job {job['id']} concluido com {len(results)} resultado(s).")
+            except RuntimeError as error:
+                fail_job(connection, job["id"], str(error))
+                print(f"[falhou] job {job['id']}: {error}")
+        if processed == 0:
+            print("Nenhuma pesquisa pendente.")
+    finally:
+        connection.close()
+
+
+if __name__ == "__main__":
+    process_all_pending()
